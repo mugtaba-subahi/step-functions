@@ -1,0 +1,75 @@
+service: step-functions
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: eu-west-1
+  versionFunctions: false
+  deploymentBucket: zadif-sls-deployments
+
+plugins:
+  - serverless-step-functions
+  - serverless-pseudo-parameters
+
+functions:
+  lambdaSF1:
+    handler: lambdas/lambdaSF1.lambdaSF1
+  lambdaSF2:
+    handler: lambdas/lambdaSF2.lambdaSF2
+  lambdaSF3:
+    handler: lambdas/lambdaSF3.lambdaSF3
+  lambdaSF4Fail:
+    handler: lambdas/lambdaSF4Fail.lambdaSF4Fail
+
+stepFunctions:
+  stateMachines:
+    sfNameFor1to3: # random, only for sls
+      name: mySF1to3
+      definition:
+        Comment: 'this is description of mySF1to3'
+        StartAt: step1CallMySF1
+        States:
+          step1CallMySF1:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-lambdaSF1
+            Next: step2CallMySF2
+            Catch:
+              - ErrorEquals: ['States.TaskFailed']
+                Next: lambdaSF4Fail
+
+          step2CallMySF2:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-lambdaSF2
+            Next: step3CallMySF3
+            Retry:
+              - ErrorEquals:
+                  - States.TaskFailed
+                IntervalSeconds: 30
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: ['States.TaskFailed']
+                Next: lambdaSF4Fail
+
+          step3CallMySF3:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-lambdaSF3
+            Next: sendToSQS
+            Catch:
+              - ErrorEquals: ['States.TaskFailed']
+                Next: lambdaSF4Fail
+
+          lambdaSF4Fail:
+            Type: Task
+            Resource: arn:aws:lambda:#{AWS::Region}:#{AWS::AccountId}:function:${self:service}-${opt:stage}-lambdaSF4Fail
+            End: true
+
+          sendToSQS:
+            Type: Task
+            Resource: arn:aws:states:::sqs:sendMessage
+            Parameters:
+              QueueUrl: https://sqs.eu-west-1.amazonaws.com/#{AWS::AccountId}/myqueue1
+              MessageBody:
+                name: muji
+                age: 36
+            End: true

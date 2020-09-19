@@ -1,0 +1,14 @@
+{
+  "name": "step_functions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "AWS_PROFILE=zadif serverless deploy --stage=dev",
+    "remove": "AWS_PROFILE=zadif serverless remove --stage=dev"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "serverless-pseudo-parameters": "^2.5.0",
+    "serverless-step-functions": "^2.25.1"
+  }
+}
